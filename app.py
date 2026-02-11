@@ -8,9 +8,6 @@ st.title("🏦 Welcome to Streamlit Bank")
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-def login():
-    st.session_state.user = None
-
 def logout():
     st.session_state.user = None
     st.success("Logged out successfully!")
@@ -28,7 +25,6 @@ if st.session_state.user:
 else:
     menu = st.sidebar.selectbox("Menu", ["Login", "Create Account"])
 
-# Page Logic
 if menu == "Create Account":
     st.subheader("👤 Create New Account")
     with st.form("create_account_form"):
@@ -36,24 +32,29 @@ if menu == "Create Account":
         age = st.number_input("Your Age", min_value=0, step=1)
         email = st.text_input("Your Email")
         pin = st.text_input("Set a 4-digit PIN", type="password", max_chars=4)
-        submit = st.form_submit_button("Create Account")
+        submitted = st.form_submit_button("Create Account")
 
-    if submit:
+    if submitted:
         if name and email and pin:
-            try:
-                user, msg = Bank.create_account(name, int(age), email, int(pin))
-                if user:
-                    st.success(msg)
-                    st.info(f"Your Account Number: {user['accountNo.']}")
-                    st.session_state.user = user  # Auto-login after creation
-                    st.markdown("Please **Login** specifically if auto-redirect doesn't work (or just refresh).")
-                    st.rerun()
-                else:
-                    st.error(msg)
-            except ValueError:
-                st.error("Invalid input. Please check your details.")
+            if age < 18:
+                st.warning("You must be at least 18 years old to create an account.")
+            elif len(pin) != 4 or not pin.isdigit():
+                st.warning("PIN must be exactly 4 digits.")
+            else:
+                try:
+                    user, msg = Bank.create_account(name, int(age), email, int(pin))
+                    if user:
+                        st.success(msg)
+                        st.info(f"Your Account Number: {user['accountNo.']}")
+                        st.session_state.user = user  # Auto-login after creation
+                        st.markdown("Please **Login** specifically if auto-redirect doesn't work (or just refresh).")
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                except ValueError:
+                    st.error("Invalid input. Please check your details.")
         else:
-            st.warning("All fields are required.")
+            st.warning("Fill all fields")
 
 elif menu == "Login":
     st.subheader("🔐 Login to Your Account")
@@ -84,13 +85,9 @@ elif menu == "Dashboard":
         st.info(f"**Account Number:** {user['accountNo.']}")
         st.info(f"**Name:** {user['name']}")
         
-        # Refresh user data to get latest balance
-        # Note: Bank.find_user requires PIN. We have it in session.
-        # Ideally we shouldn't store PIN in session for real security, but for this simpler app model it's necessary unless we refactor to token/session logic in backend.
-        # Story S3 says: "Store authenticated user details in st.session_state".
         updated_user = Bank.find_user(user['accountNo.'], user['pin'])
         if updated_user:
-            st.session_state.user = updated_user # Update session
+            st.session_state.user = updated_user 
             st.metric(label="Current Balance", value=f"₹ {updated_user['balance']}")
         else:
             st.error("Error fetching latest data.")
@@ -106,7 +103,6 @@ elif menu == "Deposit":
             success, msg = Bank.deposit(user['accountNo.'], user['pin'], int(amount))
             if success:
                 st.success(msg)
-                # Refresh session
                 updated_user = Bank.find_user(user['accountNo.'], user['pin'])
                 if updated_user:
                     st.session_state.user = updated_user
